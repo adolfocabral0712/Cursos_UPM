@@ -1,27 +1,27 @@
 const CURSO = 'Normas Transportistas madera no pulpable';
 
-const normal = v => String(v ?? '')
+const normal = valor => String(valor ?? '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .toLowerCase()
   .trim();
 
-function ci(v) {
+function ci(valor) {
   if (
-    v == null ||
-    typeof v === 'boolean' ||
-    (typeof v === 'number' && !Number.isInteger(v))
+    valor == null ||
+    typeof valor === 'boolean' ||
+    (typeof valor === 'number' && !Number.isInteger(valor))
   ) {
     return '';
   }
 
-  return String(v)
+  return String(valor)
     .replace(/\D/g, '')
     .replace(/^0+/, '');
 }
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
+function json(datos, status = 200) {
+  return new Response(JSON.stringify(datos), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
@@ -32,20 +32,23 @@ function json(data, status = 200) {
 }
 
 function fecha(valor) {
-  const s = normal(valor);
+  const texto = normal(valor);
 
-  let m = /^(\d{4})-(\d{2})-(\d{2})(?:$|[t ])/i.exec(s);
-  let y;
+  let coincidencia =
+    /^(\d{4})-(\d{2})-(\d{2})(?:$|[t ])/i.exec(texto);
+
+  let anio;
   let mes;
-  let d;
+  let dia;
 
-  if (m) {
-    [, y, mes, d] = m;
+  if (coincidencia) {
+    [, anio, mes, dia] = coincidencia;
   } else {
-    m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:$|\s)/.exec(s);
+    coincidencia =
+      /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:$|\s)/.exec(texto);
 
-    if (m) {
-      [, d, mes, y] = m;
+    if (coincidencia) {
+      [, dia, mes, anio] = coincidencia;
     } else {
       const meses = {
         ene: 1,
@@ -67,49 +70,61 @@ function fecha(valor) {
         dec: 12
       };
 
-      m = /^([a-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(s);
+      coincidencia =
+        /^([a-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(texto);
 
-      if (!m || !meses[m[1].slice(0, 3)]) {
+      if (
+        !coincidencia ||
+        !meses[coincidencia[1].slice(0, 3)]
+      ) {
         return null;
       }
 
-      mes = meses[m[1].slice(0, 3)];
-      d = m[2];
-      y = m[3];
+      mes = meses[coincidencia[1].slice(0, 3)];
+      dia = coincidencia[2];
+      anio = coincidencia[3];
     }
   }
 
-  const f = new Date(Date.UTC(
-    Number(y),
+  const resultado = new Date(Date.UTC(
+    Number(anio),
     Number(mes) - 1,
-    Number(d)
+    Number(dia)
   ));
 
-  return (
-    f.getUTCFullYear() === Number(y) &&
-    f.getUTCMonth() === Number(mes) - 1 &&
-    f.getUTCDate() === Number(d)
-  ) ? f : null;
+  if (
+    resultado.getUTCFullYear() !== Number(anio) ||
+    resultado.getUTCMonth() !== Number(mes) - 1 ||
+    resultado.getUTCDate() !== Number(dia)
+  ) {
+    return null;
+  }
+
+  return resultado;
 }
 
-function enriquecer(r, cedulas) {
-  const id = ci(r.ci);
-  const aprobacion = fecha(r.fecha_aprobacion);
-  const plazo = /^(\d+)\s*dias?$/.exec(normal(r.validez));
+function enriquecer(registro, cedulas) {
+  const documento = ci(registro.ci);
+  const aprobacion = fecha(registro.fecha_aprobacion);
 
-  const fin = aprobacion && plazo
+  const plazo = /^(\d+)\s*dias?$/.exec(
+    normal(registro.validez)
+  );
+
+  const vencimiento = aprobacion && plazo
     ? new Date(
-        aprobacion.getTime() + Number(plazo[1]) * 86400000
+        aprobacion.getTime() +
+        Number(plazo[1]) * 86400000
       )
     : null;
 
   return {
-    ...r,
-    ci: id,
-    'EN FLOTA ACTUAL': cedulas.has(id) ? 'SI' : 'NO',
+    ...registro,
+    ci: documento,
+    'EN FLOTA ACTUAL': cedulas.has(documento) ? 'SI' : 'NO',
     fecha_vencimiento:
-      fin && Number.isFinite(fin.getTime())
-        ? fin.toISOString().slice(0, 10)
+      vencimiento && Number.isFinite(vencimiento.getTime())
+        ? vencimiento.toISOString().slice(0, 10)
         : null
   };
 }
@@ -127,16 +142,16 @@ function cruzar(cursos, carga) {
 
   const cedulas = new Set();
 
-  function recorrer(v) {
-    if (Array.isArray(v)) {
-      v.forEach(recorrer);
-    } else if (v && typeof v === 'object') {
-      for (const [k, dato] of Object.entries(v)) {
-        if (normal(k) === 'cedula_identidad') {
-          const id = ci(dato);
+  function recorrer(valor) {
+    if (Array.isArray(valor)) {
+      valor.forEach(recorrer);
+    } else if (valor && typeof valor === 'object') {
+      for (const [clave, dato] of Object.entries(valor)) {
+        if (normal(clave) === 'cedula_identidad') {
+          const documento = ci(dato);
 
-          if (id) {
-            cedulas.add(id);
+          if (documento) {
+            cedulas.add(documento);
           }
         } else if (dato && typeof dato === 'object') {
           recorrer(dato);
@@ -154,12 +169,12 @@ function cruzar(cursos, carga) {
   }
 
   const registros = filas
-    .filter(r =>
-      r &&
-      normal(r.curso).includes(normal(CURSO)) &&
-      ci(r.ci)
+    .filter(registro =>
+      registro &&
+      normal(registro.curso).includes(normal(CURSO)) &&
+      ci(registro.ci)
     )
-    .map(r => enriquecer(r, cedulas));
+    .map(registro => enriquecer(registro, cedulas));
 
   if (!registros.length) {
     throw new Error(
@@ -169,30 +184,39 @@ function cruzar(cursos, carga) {
 
   const grupos = new Map();
 
-  for (const r of registros) {
-    if (cedulas.has(r.ci)) {
-      if (!grupos.has(r.ci)) {
-        grupos.set(r.ci, []);
-      }
-
-      grupos.get(r.ci).push(r);
+  for (const registro of registros) {
+    if (!cedulas.has(registro.ci)) {
+      continue;
     }
+
+    if (!grupos.has(registro.ci)) {
+      grupos.set(registro.ci, []);
+    }
+
+    grupos.get(registro.ci).push(registro);
   }
 
-  const flota_actual = [...cedulas].sort().map(id => {
-    const historial = grupos.get(id) || [];
+  const flotaActual = [...cedulas].sort().map(documento => {
+    const historial = grupos.get(documento) || [];
 
-    const elegido = historial.reduce((a, b) => {
-      if (!a) return b;
+    const elegido = historial.reduce((anterior, siguiente) => {
+      if (!anterior) {
+        return siguiente;
+      }
 
-      const fechaB = fecha(b.fecha_aprobacion)?.getTime() ?? 0;
-      const fechaA = fecha(a.fecha_aprobacion)?.getTime() ?? 0;
+      const fechaAnterior =
+        fecha(anterior.fecha_aprobacion)?.getTime() ?? 0;
 
-      return fechaB > fechaA ? b : a;
+      const fechaSiguiente =
+        fecha(siguiente.fecha_aprobacion)?.getTime() ?? 0;
+
+      return fechaSiguiente > fechaAnterior
+        ? siguiente
+        : anterior;
     }, null);
 
     const faltante = {
-      ci: id,
+      ci: documento,
       nombre: '',
       contratista: '',
       curso: CURSO,
@@ -213,13 +237,22 @@ function cruzar(cursos, carga) {
   return {
     version_esquema: 2,
     curso: registros[0].curso,
+
+    // Fecha informada por el JSON de cursos.
     actualizado: cursos.actualizado ?? null,
-    actualizado_flota: carga.actualizado ?? null,
+
+    // Fecha de carga informada por el JSON de camiones.
+    // Si no existe, utiliza el campo actualizado.
+    actualizado_flota:
+      carga.fechaCarga ?? carga.actualizado ?? null,
+
+    // Momento en que Cloudflare consultó ambas fuentes.
     flota_consultada: new Date().toISOString(),
+
     cantidad_registros: registros.length,
     cantidad_choferes_flota: cedulas.size,
     registros,
-    flota_actual
+    flota_actual: flotaActual
   };
 }
 
@@ -300,8 +333,12 @@ export default {
       }
 
       try {
+        // Descarga ambos archivos en cada consulta.
         const [cursos, carga] = await Promise.all([
-          descargar(env.CURSOS_FAS_JSON_URL, 'cursos'),
+          descargar(
+            env.CURSOS_FAS_JSON_URL,
+            'cursos'
+          ),
           descargar(
             env.CARGA_CAMIONES_JSON_URL,
             'carga de camiones'
@@ -309,9 +346,9 @@ export default {
         ]);
 
         return json(cruzar(cursos, carga));
-      } catch (e) {
+      } catch (error) {
         return json({
-          error: e.message
+          error: error.message
         }, 502);
       }
     }
