@@ -33,6 +33,11 @@ h1 {
   margin: 0 0 8px;
 }
 
+h2 {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
 p { line-height: 1.5; }
 
 .sub {
@@ -123,6 +128,11 @@ input, select {
 #buscar, #buscarPendientes {
   flex: 1;
   min-width: 220px;
+}
+
+#cedulaConsulta {
+  width: 280px;
+  max-width: 100%;
 }
 
 .tablebox {
@@ -228,6 +238,8 @@ tr[data-grupo="proximo"] { background: #fff5e6; }
   color: #5d766c;
 }
 
+section { margin-top: 28px; }
+
 dialog {
   border: 1px solid #cadbd1;
   border-radius: 14px;
@@ -254,6 +266,7 @@ footer { margin-top: 16px; }
   select { width: 100%; }
   .card { min-height: 80px; }
   .card strong { font-size: 25px; }
+  #cedulaConsulta { width: 100%; }
 }
 </style>
 </head>
@@ -308,13 +321,8 @@ footer { margin-top: 16px; }
     </table>
   </div>
 
-  <section style="margin-top:28px" aria-labelledby="tituloPendientes">
-    <h2
-      id="tituloPendientes"
-      style="font-size:20px;margin-bottom:6px"
-    >
-      Todos los pendientes del curso
-    </h2>
+  <section aria-labelledby="tituloPendientes">
+    <h2 id="tituloPendientes">Todos los pendientes del curso</h2>
 
     <p class="sub">
       Incluye registros pendientes de choferes que están y que no
@@ -337,6 +345,47 @@ footer { margin-top: 16px; }
           <tr id="encabezadosPendientes"></tr>
         </thead>
         <tbody id="filasPendientes"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="tituloConsulta">
+    <h2 id="tituloConsulta">Consulta por cédula</h2>
+
+    <p class="sub">
+      Consultá todos los registros de este curso para una cédula,
+      esté o no en la flota actual.
+    </p>
+
+    <form id="formConsulta" class="filters">
+      <input
+        id="cedulaConsulta"
+        type="text"
+        inputmode="numeric"
+        autocomplete="off"
+        aria-label="Cédula a consultar"
+        placeholder="Ejemplo: 5.050.106-0"
+      >
+
+      <button id="consultarCedula" class="primary" type="submit">
+        Consultar
+      </button>
+
+      <button id="limpiarConsulta" type="button">
+        Limpiar consulta
+      </button>
+    </form>
+
+    <p id="mensajeConsulta" class="sub" aria-live="polite">
+      Ingresá una cédula y pulsá Consultar.
+    </p>
+
+    <div id="tablaConsulta" class="tablebox" hidden>
+      <table>
+        <thead>
+          <tr id="encabezadosConsulta"></tr>
+        </thead>
+        <tbody id="filasConsulta"></tbody>
       </table>
     </div>
   </section>
@@ -429,6 +478,7 @@ const columnas = [
   ['cantidad_registros_curso', 'Registros']
 ];
 
+let ciConsultada = '';
 let ordenPendientes = 'nombre';
 let direccionPendientes = 1;
 
@@ -541,7 +591,8 @@ function cargar(d) {
   if (
     !d ||
     d.version_esquema !== 2 ||
-    !Array.isArray(d.flota_actual)
+    !Array.isArray(d.flota_actual) ||
+    !Array.isArray(d.registros)
   ) {
     throw new Error('La respuesta del servidor no tiene el formato esperado.');
   }
@@ -633,6 +684,10 @@ function cargar(d) {
 
   render();
   renderPendientes();
+
+  if (ciConsultada) {
+    renderConsulta();
+  }
 }
 
 function render() {
@@ -789,7 +844,7 @@ function renderPendientes() {
     ['EN FLOTA ACTUAL', 'En flota actual']
   ];
 
-  const todos = (datos.registros ?? [])
+  const todos = datos.registros
     .filter(r => normal(r.estado) === 'pendiente');
 
   const q = normal($('buscarPendientes').value);
@@ -885,6 +940,106 @@ function renderPendientes() {
   }
 }
 
+function limpiarCi(v) {
+  return String(v ?? '')
+    .replace(/\D/g, '')
+    .replace(/^0+/, '');
+}
+
+function buscarCedula(filas, documento) {
+  return filas
+    .filter(r => limpiarCi(r.ci) === documento)
+    .map(clasificar)
+    .sort((a, b) =>
+      String(b.fecha_vencimiento ?? '').localeCompare(
+        String(a.fecha_vencimiento ?? '')
+      )
+    );
+}
+
+function renderConsulta() {
+  if (!ciConsultada) return;
+
+  if (!datos) {
+    $('mensajeConsulta').textContent =
+      'Todavía no hay datos cargados. Pulsá Actualizar y volvé a consultar.';
+
+    $('tablaConsulta').hidden = true;
+    return;
+  }
+
+  const cols = [
+    ['contratista', 'Contratista'],
+    ['nombre', 'Nombre'],
+    ['ci', 'CI'],
+    ['estado', 'Estado FAS'],
+    ['situacion', 'Situación actual'],
+    ['fecha_aprobacion', 'Fecha aprobación'],
+    ['fecha_vencimiento', 'Vencimiento calculado'],
+    ['dias', 'Días restantes'],
+    ['EN FLOTA ACTUAL', 'En flota actual']
+  ];
+
+  const resultados = buscarCedula(
+    datos.registros,
+    ciConsultada
+  );
+
+  $('encabezadosConsulta').replaceChildren();
+  $('filasConsulta').replaceChildren();
+
+  for (const [, label] of cols) {
+    const th = document.createElement('th');
+    th.style.padding = '14px 8px';
+    th.textContent = label;
+    $('encabezadosConsulta').append(th);
+  }
+
+  if (!resultados.length) {
+    $('mensajeConsulta').textContent =
+      `CI ${ciConsultada}: no se encontraron registros de este curso` +
+      ' en el archivo de cursos. Esto no confirma por sí solo que no' +
+      ' esté asignado en FAS.';
+
+    $('tablaConsulta').hidden = true;
+    return;
+  }
+
+  $('mensajeConsulta').textContent =
+    `CI ${ciConsultada}: ${resultados.length} registro(s) encontrado(s).` +
+    ' Se muestran todos los registros disponibles para esta cédula.';
+
+  for (const r of resultados) {
+    const tr = document.createElement('tr');
+    tr.dataset.grupo = r.grupo;
+
+    for (const [k] of cols) {
+      const td = document.createElement('td');
+
+      if (k === 'situacion') {
+        const b = document.createElement('span');
+        b.className = 'badge ' + r.grupo;
+        b.textContent = nombrePropio(r.situacion);
+        td.append(b);
+      } else if (k === 'EN FLOTA ACTUAL') {
+        td.textContent = r[k] === 'SI'
+          ? 'Sí'
+          : r[k] === 'NO'
+            ? 'No'
+            : '—';
+      } else {
+        td.textContent = textoCelda(r, k);
+      }
+
+      tr.append(td);
+    }
+
+    $('filasConsulta').append(tr);
+  }
+
+  $('tablaConsulta').hidden = false;
+}
+
 function historial(r) {
   $('tituloDetalle').textContent =
     `${nombrePropio(r.nombre) || 'Chofer'} · CI ${r.ci}`;
@@ -961,6 +1116,47 @@ async function actualizar() {
   }
 }
 
+$('formConsulta').onsubmit = e => {
+  e.preventDefault();
+
+  const valor = $('cedulaConsulta').value.trim();
+
+  ciConsultada = '';
+  $('tablaConsulta').hidden = true;
+
+  if (
+    !/^[0-9.\s-]+$/.test(valor) ||
+    !limpiarCi(valor)
+  ) {
+    $('mensajeConsulta').textContent =
+      'Ingresá una cédula válida. Puede tener puntos, guion o espacios.';
+    return;
+  }
+
+  ciConsultada = limpiarCi(valor);
+  renderConsulta();
+};
+
+$('cedulaConsulta').oninput = () => {
+  ciConsultada = '';
+  $('tablaConsulta').hidden = true;
+
+  $('mensajeConsulta').textContent =
+    'Pulsá Consultar para buscar la cédula ingresada.';
+};
+
+$('limpiarConsulta').onclick = () => {
+  ciConsultada = '';
+  $('cedulaConsulta').value = '';
+  $('tablaConsulta').hidden = true;
+  $('filasConsulta').replaceChildren();
+
+  $('mensajeConsulta').textContent =
+    'Ingresá una cédula y pulsá Consultar.';
+
+  $('cedulaConsulta').focus();
+};
+
 $('actualizar').onclick = actualizar;
 $('buscar').oninput = render;
 $('buscarPendientes').oninput = renderPendientes;
@@ -1003,7 +1199,13 @@ $('exportar').onclick = () => {
 };
 
 setInterval(() => {
-  if (datos) render();
+  if (datos) {
+    render();
+
+    if (ciConsultada) {
+      renderConsulta();
+    }
+  }
 }, 60000);
 
 actualizar();
