@@ -310,6 +310,19 @@ footer { margin-top: 16px; }
     <button id="limpiar">Limpiar filtros</button>
   </div>
 
+  <section id="seccionRecientes" aria-labelledby="tituloRecientes">
+    <h2 id="tituloRecientes">Cursos realizados: hoy, ayer y anteayer</h2>
+    <p class="sub">Según la fecha de aprobación registrada en FAS. Incluye choferes dentro y fuera de la flota actual.</p>
+    <p id="cantidadRecientes" class="sub" aria-live="polite">Sin datos cargados.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr id="encabezadosRecientes"></tr></thead>
+        <tbody id="filasRecientes"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <h2>Flota actual</h2>
   <p id="cantidad" class="sub">Sin datos cargados.</p>
 
   <div class="tablebox">
@@ -693,6 +706,7 @@ function cargar(d) {
 function render() {
   if (!datos) return;
 
+  renderRecientes();
   registros = datos.flota_actual.map(clasificar);
 
   const q = normal($('buscar').value);
@@ -829,6 +843,74 @@ function render() {
 
     tr.append(td);
     $('filas').append(tr);
+  }
+}
+
+function diaAprobacion(valor) {
+  const texto = normal(valor);
+  let m = /^(\d{4}-\d{2}-\d{2})(?:$|[t\s])/.exec(texto);
+  if (m) return diaNumero(m[1]);
+  m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:$|\s)/.exec(texto);
+  if (m) return diaNumero(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+  const meses = {ene:1,jan:1,feb:2,mar:3,abr:4,apr:4,may:5,jun:6,jul:7,ago:8,aug:8,sep:9,set:9,oct:10,nov:11,dic:12,dec:12};
+  m = /^([a-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(texto);
+  if (!m || !meses[m[1].slice(0,3)]) return null;
+  return diaNumero(`${m[3]}-${String(meses[m[1].slice(0,3)]).padStart(2,'0')}-${m[2].padStart(2,'0')}`);
+}
+
+function aprobacionesRecientes(filas, hoy = hoyNumero()) {
+  return filas.map(r => {
+    const dia = diaAprobacion(r.fecha_aprobacion);
+    return {...r, antiguedad: dia === null ? null : hoy - dia};
+  }).filter(r => r.antiguedad !== null && r.antiguedad >= 0 && r.antiguedad <= 2)
+    .sort((a,b) => a.antiguedad - b.antiguedad || String(a.nombre ?? '').localeCompare(String(b.nombre ?? ''),'es'));
+}
+
+function renderRecientes() {
+  if (!datos) return;
+  const q = normal($('buscar').value);
+  const contratista = $('contratista').value;
+  const todos = aprobacionesRecientes(datos.registros);
+  const lista = todos.filter(r => (!contratista || r.contratista === contratista) &&
+    (!q || normal([r.nombre,r.ci,r.contratista].join(' ')).includes(q)));
+  const etiquetas = ['Hoy','Ayer','Anteayer'];
+  const resumen = etiquetas.map((texto,i) => `${texto}: ${lista.filter(r => r.antiguedad === i).length}`).join(' · ');
+  $('cantidadRecientes').textContent = `${lista.length} registros visibles de ${todos.length} · ${resumen}`;
+  const cols = [['dia','Día'],['contratista','Contratista'],['nombre','Nombre'],['ci','CI'],['estado','Estado FAS'],['fecha_aprobacion','Fecha aprobación'],['EN FLOTA ACTUAL','En flota actual']];
+  $('encabezadosRecientes').replaceChildren();
+  $('filasRecientes').replaceChildren();
+  for (const [,titulo] of cols) {
+    const th = document.createElement('th');
+    th.textContent = titulo;
+    th.style.padding = '14px 8px';
+    $('encabezadosRecientes').append(th);
+  }
+  for (const r of lista) {
+    const tr = document.createElement('tr');
+    for (const [clave] of cols) {
+      const td = document.createElement('td');
+      if (clave === 'dia') {
+        const badge = document.createElement('span');
+        badge.className = 'badge aprobado';
+        badge.textContent = etiquetas[r.antiguedad];
+        td.append(badge);
+      } else if (clave === 'EN FLOTA ACTUAL') {
+        td.textContent = r[clave] === 'SI' ? 'Sí' : r[clave] === 'NO' ? 'No' : '—';
+      } else if (clave === 'fecha_aprobacion') {
+        const dia = diaAprobacion(r.fecha_aprobacion);
+        td.textContent = fecha(new Date(dia * 86400000).toISOString().slice(0,10));
+      } else td.textContent = textoCelda(r,clave);
+      tr.append(td);
+    }
+    $('filasRecientes').append(tr);
+  }
+  if (!lista.length) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = cols.length;
+    td.textContent = 'No hay cursos con fecha de aprobación de hoy, ayer o anteayer para estos filtros.';
+    tr.append(td);
+    $('filasRecientes').append(tr);
   }
 }
 
