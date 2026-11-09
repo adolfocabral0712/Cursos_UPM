@@ -8,8 +8,8 @@
 <style>
 :root {
   font-family: Segoe UI, Arial, sans-serif;
-  color: #18352f;
-  background: #f2f6f4;
+  color: #1F1F1F;
+  background: #F4F3F1;
 }
 
 * { box-sizing: border-box; }
@@ -41,14 +41,14 @@ h2 {
 p { line-height: 1.5; }
 
 .sub {
-  color: #57736a;
+  color: #6B6B6B;
   font-size: 14px;
 }
 
 #curso {
   font-size: 18px;
   font-weight: 700;
-  color: #244d40;
+  color: #C65312;
   line-height: 1.4;
 }
 
@@ -61,14 +61,14 @@ p { line-height: 1.5; }
 button {
   font: inherit;
   cursor: pointer;
-  border: 1px solid #ccdcd4;
+  border: 1px solid #E2DAD4;
   border-radius: 9px;
   padding: 10px 14px;
   background: white;
-  color: #18352f;
+  color: #1F1F1F;
 }
 
-button:hover { background: #eaf2ed; }
+button:hover { background: #F8F6F4; }
 
 button:disabled {
   opacity: .5;
@@ -76,7 +76,7 @@ button:disabled {
 }
 
 .primary {
-  background: #165943;
+  background: #C65312;
   color: white;
 }
 
@@ -92,7 +92,7 @@ button:disabled {
   min-height: 96px;
   padding: 14px 6px;
   border-top: 4px solid var(--tone);
-  box-shadow: 0 3px 10px #173d2910;
+  box-shadow: 0 3px 10px #1F1F1F12;
 }
 
 .card strong {
@@ -104,7 +104,7 @@ button:disabled {
 .card span { font-size: 13px; }
 
 .card[aria-pressed="true"] {
-  outline: 2px solid #165943;
+  outline: 2px solid #C65312;
   outline-offset: 2px;
 }
 
@@ -119,7 +119,7 @@ button:disabled {
 input, select {
   font: inherit;
   padding: 11px;
-  border: 1px solid #c9dad1;
+  border: 1px solid #E2DAD4;
   border-radius: 8px;
   background: white;
   color: inherit;
@@ -137,7 +137,7 @@ input, select {
 
 .tablebox {
   overflow: auto;
-  border: 1px solid #d6e1dc;
+  border: 1px solid #E2DAD4;
   border-radius: 12px;
   background: white;
 }
@@ -149,7 +149,7 @@ table {
 }
 
 th {
-  background: #e4efe9;
+  background: #C65312;
   text-align: center;
   padding: 0;
   position: sticky;
@@ -168,7 +168,7 @@ th button {
 
 td {
   padding: 12px 9px;
-  border-bottom: 1px solid #e5ede8;
+  border-bottom: 1px solid #E2DAD4;
   text-align: center;
   white-space: normal;
 }
@@ -177,7 +177,7 @@ td:nth-child(2) { min-width: 170px; }
 
 tr[data-grupo="vencido"],
 tr[data-grupo="sin"] {
-  background: #fff0ef;
+  background: #FFF4EA;
 }
 
 tr[data-grupo="proximo"] { background: #fff5e6; }
@@ -187,7 +187,7 @@ tr[data-grupo="proximo"] { background: #fff5e6; }
   padding: 5px 9px;
   border-radius: 20px;
   font-weight: 600;
-  background: #e7efeb;
+  background: #F4F3F1;
 }
 
 .badge.vencido,
@@ -197,7 +197,7 @@ tr[data-grupo="proximo"] { background: #fff5e6; }
 }
 
 .badge.proximo {
-  background: #ffe4bd;
+  background: #FFE4BD;
   color: #995908;
 }
 
@@ -207,19 +207,19 @@ tr[data-grupo="proximo"] { background: #fff5e6; }
 }
 
 .badge.aprobado {
-  background: #d7f1df;
-  color: #166132;
+  background: #FFF4EA;
+  color: #C65312;
 }
 
 .badge.revisar {
-  background: #e7e5f7;
-  color: #56429b;
+  background: #F4F3F1;
+  color: #6B6B6B;
 }
 
 .alert {
   padding: 12px 16px;
-  border: 1px solid #e8c49c;
-  background: #fff6e9;
+  border: 1px solid #FFB86B;
+  background: #FFF4EA;
   border-radius: 9px;
   margin: 15px 0;
   white-space: pre-line;
@@ -235,20 +235,20 @@ tr[data-grupo="proximo"] { background: #fff5e6; }
 
 .foot {
   font-size: 12px;
-  color: #5d766c;
+  color: #6B6B6B;
 }
 
 section { margin-top: 28px; }
 
 dialog {
-  border: 1px solid #cadbd1;
+  border: 1px solid #E2DAD4;
   border-radius: 14px;
   max-width: 95vw;
   width: 1000px;
   padding: 20px;
 }
 
-dialog::backdrop { background: #0b292966; }
+dialog::backdrop { background: #1F1F1FCC; }
 dialog h2 { font-size: 20px; }
 #historial td { min-width: 100px; }
 footer { margin-top: 16px; }
@@ -470,13 +470,13 @@ function nombrePropio(v) {
 }
 
 const grupos = [
-  ['todos', 'Flota actual', '#165943'],
-  ['vencido', 'Vencidos', '#c23932'],
-  ['sin', 'Sin curso registrado', '#c23932'],
-  ['proximo', 'Por vencer < 10 días', '#db880f'],
-  ['pendiente', 'Pendientes', '#c4a322'],
-  ['aprobado', 'Aprobados vigentes', '#288a4d'],
-  ['revisar', 'Otros / Revisar', '#7a61b3']
+  ['todos', 'Flota actual', '#C65312'],
+  ['vencido', 'Vencidos', '#B42318'],
+  ['sin', 'Sin curso registrado', '#B42318'],
+  ['proximo', 'Por vencer < 10 días', '#FFB86B'],
+  ['pendiente', 'Pendientes', '#E86F18'],
+  ['aprobado', 'Aprobados vigentes', '#C65312'],
+  ['revisar', 'Otros / Revisar', '#6B6B6B']
 ];
 
 const columnas = [
